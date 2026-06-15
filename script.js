@@ -9,14 +9,88 @@ const defaultProducts = [
     { id: 7, name: "كابوتشينو / إسبريسو", price: 150.00, category: "drinks", icon: "fa-mug-hot" }
 ];
 
-// تحميل المخزون والتقارير المالية التراكمية من الخزنة المحلية المتصفح (LocalStorage)
-let products = JSON.parse(localStorage.getItem("restaurant_inventory")) || defaultProducts;
-let totalEarnings = parseFloat(localStorage.getItem("restaurant_total_earnings")) || 0.00;
-let completedOrdersCount = parseInt(localStorage.getItem("restaurant_orders_count")) || 0;
-
+// المتغيرات العامة (تُعبأ لاحقاً من IndexedDB)
+let products = [];
+let totalEarnings = 0.00;
+let completedOrdersCount = 0;
 let cart = [];
-let currentOrderTotalTemp = 0; // متغيّر لحجز قيمة الطلب النشط حالياً مؤقتاً لحين إنهاء المعاملة
+let currentOrderTotalTemp = 0; 
+let db;
 
+// ----------------------------------------------------
+// إعداد وتهيئة قاعدة بيانات IndexedDB
+// ----------------------------------------------------
+const request = indexedDB.open("RestaurantDB", 1);
+
+request.onupgradeneeded = function(event) {
+    db = event.target.result;
+    // إنشاء جداول (مخازن) للمنتجات والإحصائيات
+    if (!db.objectStoreNames.contains("inventory")) {
+        db.createObjectStore("inventory", { keyPath: "id" });
+    }
+    if (!db.objectStoreNames.contains("stats")) {
+        db.createObjectStore("stats", { keyPath: "id" });
+    }
+};
+
+request.onsuccess = function(event) {
+    db = event.target.result;
+    loadDataFromDB(); // تحميل البيانات فور نجاح الاتصال بالقاعدة
+};
+
+request.onerror = function(event) {
+    console.error("خطأ في فتح قاعدة البيانات IndexedDB:", event);
+};
+
+// دالة جلب البيانات الأولية لتشغيل النظام
+function loadDataFromDB() {
+    const tx = db.transaction(["inventory", "stats"], "readonly");
+    const inventoryStore = tx.objectStore("inventory");
+    const statsStore = tx.objectStore("stats");
+
+    const getInventory = inventoryStore.getAll();
+    const getEarnings = statsStore.get("totalEarnings");
+    const getOrders = statsStore.get("completedOrdersCount");
+
+    tx.oncomplete = function() {
+        // تحميل المنيو
+        if (getInventory.result && getInventory.result.length > 0) {
+            products = getInventory.result;
+        } else {
+            products = [...defaultProducts];
+            saveInventoryToStorage(); // حفظ المنيو الافتراضي في القاعدة إذا كانت فارغة
+        }
+
+        // تحميل الإحصائيات
+        totalEarnings = getEarnings.result ? getEarnings.result.value : 0.00;
+        completedOrdersCount = getOrders.result ? getOrders.result.value : 0;
+
+        // التشغيل الأولي للمشروع والواجهة (تم نقلها هنا لضمان جلب البيانات أولاً)
+        displayMenu();
+        updateDashboardUI();
+    };
+}
+
+// ----------------------------------------------------
+// دوال الحفظ في IndexedDB (بديلة لـ LocalStorage)
+// ----------------------------------------------------
+function saveInventoryToStorage() {
+    const tx = db.transaction("inventory", "readwrite");
+    const store = tx.objectStore("inventory");
+    store.clear(); // تفريغ القديم لضمان تفعيل الحذف بشكل سليم
+    products.forEach(p => store.put(p));
+}
+
+function saveStatsToStorage() {
+    const tx = db.transaction("stats", "readwrite");
+    const store = tx.objectStore("stats");
+    store.put({ id: "totalEarnings", value: totalEarnings });
+    store.put({ id: "completedOrdersCount", value: completedOrdersCount });
+}
+
+// ----------------------------------------------------
+// باقي دوال النظام الأصلية بدون تغيير جذري
+// ----------------------------------------------------
 function updateDashboardUI() {
     document.getElementById("totalEarnings").textContent = `${totalEarnings.toFixed(2)} د.ج`;
     document.getElementById("completedOrdersCount").textContent = completedOrdersCount;
@@ -26,14 +100,9 @@ function resetEarnings() {
     if (confirm("تحذير محاسبي: هل أنت متأكد من تصفير كافة الأرباح وإحصائيات المبيعات المسجلة بالكامل؟")) {
         totalEarnings = 0.00;
         completedOrdersCount = 0;
-        localStorage.setItem("restaurant_total_earnings", totalEarnings);
-        localStorage.setItem("restaurant_orders_count", completedOrdersCount);
+        saveStatsToStorage(); // حفظ التصفير في القاعدة
         updateDashboardUI();
     }
-}
-
-function saveInventoryToStorage() {
-    localStorage.setItem("restaurant_inventory", JSON.stringify(products));
 }
 
 function addNewProduct() {
@@ -58,7 +127,7 @@ function addNewProduct() {
     const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
     products.push({ id: newId, name, price, category, icon });
     
-    saveInventoryToStorage();
+    saveInventoryToStorage(); // تحديث قاعدة البيانات
     displayMenu();
     
     nameInput.value = "";
@@ -71,7 +140,7 @@ function deleteProductFromMenu(productId, event) {
     if (confirm("هل أنت متأكد من حذف هذه الوجبة نهائياً من قائمة الطعام؟")) {
         products = products.filter(product => product.id !== productId);
         cart = cart.filter(item => item.id !== productId);
-        saveInventoryToStorage();
+        saveInventoryToStorage(); // تحديث قاعدة البيانات بعد الحذف
         displayMenu();
         updateCartUI();
     }
@@ -174,7 +243,6 @@ function updateCartUI() {
     document.getElementById("grandTotalPrice").textContent = `${subtotal.toFixed(2)} د.ج`;
 }
 
-// 1. دالة الدفع الصافية وحفظ المعاملة (تُعرض فقط على الشاشة ولا تطبع تلقائياً)
 function checkoutOrder() {
     if (cart.length === 0) {
         alert("الفاتورة فارغة! أضف بعض الوجبات أولاً ليتم الدفع.");
@@ -202,7 +270,6 @@ function checkoutOrder() {
     document.getElementById("invoiceModal").style.display = "flex";
 }
 
-// 2. دالة الطباعة الحقيقية المستقلة تماماً (تُستدعى بناءً على رغبة الكاشير فقط)
 function printRealInvoice() {
     const invoiceContent = document.getElementById("invoiceDetails").innerHTML;
     const printWindow = window.open('', '', 'height=600,width=400');
@@ -230,21 +297,19 @@ function printRealInvoice() {
     setTimeout(() => {
         printWindow.print();
         printWindow.close();
-        closeInvoice(); // إنهاء الطلب وتصفير السلة تلقائياً بعد خروج الفاتورة
+        closeInvoice(); 
     }, 500);
 }
 
-// دالة الطباعة الفورية المباشرة من لوحة التحكم الجانبية (دون المرور بالنافذة المنبثقة)
 function directPrint() {
     if (cart.length === 0) {
         alert("السلة فارغة، لا يوجد شيء لطباعته!");
         return;
     }
-    checkoutOrder();     // تجهيز البيانات وبناء الإيصال أولاً
-    printRealInvoice();   // تفعيل محرك الطابعة فورا
+    checkoutOrder();     
+    printRealInvoice();   
 }
 
-// ترحيل الأرباح الصافية رسمياً وتصفير سلة الكاشير
 function closeInvoice() {
     document.getElementById("invoiceModal").style.display = "none";
     
@@ -252,8 +317,7 @@ function closeInvoice() {
         totalEarnings += currentOrderTotalTemp;
         completedOrdersCount += 1;
         
-        localStorage.setItem("restaurant_total_earnings", totalEarnings);
-        localStorage.setItem("restaurant_orders_count", completedOrdersCount);
+        saveStatsToStorage(); // حفظ الأرباح والإحصائيات في القاعدة بعد إنهاء المعاملة
         
         updateDashboardUI();
         currentOrderTotalTemp = 0;
@@ -262,7 +326,3 @@ function closeInvoice() {
     cart = [];
     updateCartUI();
 }
-
-// التشغيل الأولي للمشروع
-displayMenu();
-updateDashboardUI();
