@@ -1,0 +1,19 @@
+{
+  "short_name": "مطعم الوجيز",
+  "name": "نظام إدارة ومبيعات المطاعم الاحترافي",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3442/3442111.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#f1f5f9",
+  "theme_color": "#e25c1d",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "ar"
+}
