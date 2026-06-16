@@ -29,7 +29,7 @@
                         </tr>
                     </thead>
                     <tbody id="cartTableBody">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
 
@@ -58,7 +58,7 @@
                 <div class="stat-card revenue">
                     <div class="stat-icon"><i class="fa-solid fa-wallet"></i></div>
                     <div class="stat-info">
-                        <span>إجمالي دخل المطعم (الخزينة)</span>
+                        <span>إجمالي أرباح المطعم (الخزينة الصافية)</span>
                         <h2 id="totalEarnings">0.00 د.ج</h2>
                     </div>
                 </div>
@@ -78,7 +78,8 @@
                 <h3><i class="fa-solid fa-folder-plus"></i> إضافة وجبة جديدة إلى قائمة الطعام</h3>
                 <div class="admin-form">
                     <input type="text" id="newProductName" placeholder="اسم الوجبة (مثال: شاورما)" required>
-                    <input type="number" id="newProductPrice" placeholder="السعر (د.ج)" step="0.01" required>
+                    <input type="number" id="newProductCost" placeholder="التكلفة (د.ج)" step="0.01" required>
+                    <input type="number" id="newProductPrice" placeholder="السعر للزبون (د.ج)" step="0.01" required>
                     <select id="newProductCategory">
                         <option value="fastfood">وجبات سريعة</option>
                         <option value="sweets">الحلويات والتحلية</option>
@@ -96,7 +97,7 @@
             </nav>
 
             <div class="menu-grid" id="menuGrid">
-                </div>
+            </div>
         </main>
 
     </div>
