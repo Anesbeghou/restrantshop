@@ -329,3 +329,13 @@ function closeInvoice() {
     cart = [];
     updateCartUI();
 }
+
+
+// تسجيل نظام العمل دون اتصال الديناميكي (Restaurant PWA Active)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('نظام المطعم جاهز للعمل دون اتصال بنجاح!'))
+      .catch(err => console.error('خطأ في تسجيل الـ Service Worker:', err));
+  });
+}
