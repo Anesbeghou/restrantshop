@@ -1,15 +1,15 @@
-// قائمة الوجبات الافتراضية للمطعم
+// قائمة الوجبات الافتراضية للمطعم مع إضافة التكلفة المحسوبة
 const defaultProducts = [
-    { id: 1, name: "برغر لحم ملكي", price: 450.00, category: "fastfood", icon: "fa-hamburger" },
-    { id: 2, name: "بيتزا ميكس فُورماج", price: 650.00, category: "fastfood", icon: "fa-pizza-slice" },
-    { id: 3, name: "ساندويش شاورما دجاج", price: 300.00, category: "fastfood", icon: "fa-hotdog" },
-    { id: 4, name: "تارت الشوكولاتة الفاخرة", price: 250.00, category: "sweets", icon: "fa-cookie" },
-    { id: 5, name: "قطعة تشيز كيك كرز", price: 350.00, category: "sweets", icon: "fa-ice-cream" },
-    { id: 6, name: "عصير برتقال طبيعي", price: 180.00, category: "drinks", icon: "fa-glass-water" },
-    { id: 7, name: "كابوتشينو / إسبريسو", price: 150.00, category: "drinks", icon: "fa-mug-hot" }
+    { id: 1, name: "برغر لحم ملكي", price: 450.00, cost: 250.00, category: "fastfood", icon: "fa-hamburger" },
+    { id: 2, name: "بيتزا ميكس فُورماج", price: 650.00, cost: 380.00, category: "fastfood", icon: "fa-pizza-slice" },
+    { id: 3, name: "ساندويش شاورما دجاج", price: 300.00, cost: 160.00, category: "fastfood", icon: "fa-hotdog" },
+    { id: 4, name: "تارت الشوكولاتة الفاخرة", price: 250.00, cost: 120.00, category: "sweets", icon: "fa-cookie" },
+    { id: 5, name: "قطعة تشيز كيك كرز", price: 350.00, cost: 180.00, category: "sweets", icon: "fa-ice-cream" },
+    { id: 6, name: "عصير برتقال طبيعي", price: 180.00, cost: 70.00, category: "drinks", icon: "fa-glass-water" },
+    { id: 7, name: "كابوتشينو / إسبريسو", price: 150.00, cost: 50.00, category: "drinks", icon: "fa-mug-hot" }
 ];
 
-// المتغيرات العامة (تُعبأ لاحقاً من IndexedDB)
+// المتغيرات العامة
 let products = [];
 let totalEarnings = 0.00;
 let completedOrdersCount = 0;
@@ -24,7 +24,6 @@ const request = indexedDB.open("RestaurantDB", 1);
 
 request.onupgradeneeded = function(event) {
     db = event.target.result;
-    // إنشاء جداول (مخازن) للمنتجات والإحصائيات
     if (!db.objectStoreNames.contains("inventory")) {
         db.createObjectStore("inventory", { keyPath: "id" });
     }
@@ -35,14 +34,13 @@ request.onupgradeneeded = function(event) {
 
 request.onsuccess = function(event) {
     db = event.target.result;
-    loadDataFromDB(); // تحميل البيانات فور نجاح الاتصال بالقاعدة
+    loadDataFromDB(); 
 };
 
 request.onerror = function(event) {
     console.error("خطأ في فتح قاعدة البيانات IndexedDB:", event);
 };
 
-// دالة جلب البيانات الأولية لتشغيل النظام
 function loadDataFromDB() {
     const tx = db.transaction(["inventory", "stats"], "readonly");
     const inventoryStore = tx.objectStore("inventory");
@@ -53,31 +51,25 @@ function loadDataFromDB() {
     const getOrders = statsStore.get("completedOrdersCount");
 
     tx.oncomplete = function() {
-        // تحميل المنيو
         if (getInventory.result && getInventory.result.length > 0) {
             products = getInventory.result;
         } else {
             products = [...defaultProducts];
-            saveInventoryToStorage(); // حفظ المنيو الافتراضي في القاعدة إذا كانت فارغة
+            saveInventoryToStorage(); 
         }
 
-        // تحميل الإحصائيات
         totalEarnings = getEarnings.result ? getEarnings.result.value : 0.00;
         completedOrdersCount = getOrders.result ? getOrders.result.value : 0;
 
-        // التشغيل الأولي للمشروع والواجهة (تم نقلها هنا لضمان جلب البيانات أولاً)
         displayMenu();
         updateDashboardUI();
     };
 }
 
-// ----------------------------------------------------
-// دوال الحفظ في IndexedDB (بديلة لـ LocalStorage)
-// ----------------------------------------------------
 function saveInventoryToStorage() {
     const tx = db.transaction("inventory", "readwrite");
     const store = tx.objectStore("inventory");
-    store.clear(); // تفريغ القديم لضمان تفعيل الحذف بشكل سليم
+    store.clear(); 
     products.forEach(p => store.put(p));
 }
 
@@ -89,7 +81,7 @@ function saveStatsToStorage() {
 }
 
 // ----------------------------------------------------
-// باقي دوال النظام الأصلية بدون تغيير جذري
+// دوال النظام المحدثة
 // ----------------------------------------------------
 function updateDashboardUI() {
     document.getElementById("totalEarnings").textContent = `${totalEarnings.toFixed(2)} د.ج`;
@@ -100,22 +92,25 @@ function resetEarnings() {
     if (confirm("تحذير محاسبي: هل أنت متأكد من تصفير كافة الأرباح وإحصائيات المبيعات المسجلة بالكامل؟")) {
         totalEarnings = 0.00;
         completedOrdersCount = 0;
-        saveStatsToStorage(); // حفظ التصفير في القاعدة
+        saveStatsToStorage(); 
         updateDashboardUI();
     }
 }
 
 function addNewProduct() {
     const nameInput = document.getElementById("newProductName");
+    const costInput = document.getElementById("newProductCost");
     const priceInput = document.getElementById("newProductPrice");
     const categoryInput = document.getElementById("newProductCategory");
 
     const name = nameInput.value.trim();
+    const cost = parseFloat(costInput.value);
     const price = parseFloat(priceInput.value);
     const category = categoryInput.value;
 
-    if (!name || isNaN(price) || price <= 0) {
-        alert("الرجاء إدخال اسم الأكلة وتحديد سعر صحيح أكبر من الصفر!");
+    // التحقق من صحة المدخلات الرقمية للتكلفة وسعر البيع
+    if (!name || isNaN(cost) || cost < 0 || isNaN(price) || price <= 0) {
+        alert("الرجاء إدخال اسم الأكلة وتحديد تكلفة وسعر بيع صحيحين أكبر من أو يساوي الصفر!");
         return;
     }
 
@@ -125,12 +120,15 @@ function addNewProduct() {
     if (category === "drinks") icon = "fa-glass-water";
 
     const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
-    products.push({ id: newId, name, price, category, icon });
     
-    saveInventoryToStorage(); // تحديث قاعدة البيانات
+    // حفظ التكلفة والسعر معاً داخل مصفوفة المنتجات
+    products.push({ id: newId, name, cost, price, category, icon });
+    
+    saveInventoryToStorage(); 
     displayMenu();
     
     nameInput.value = "";
+    costInput.value = "";
     priceInput.value = "";
     nameInput.focus();
 }
@@ -140,7 +138,7 @@ function deleteProductFromMenu(productId, event) {
     if (confirm("هل أنت متأكد من حذف هذه الوجبة نهائياً من قائمة الطعام؟")) {
         products = products.filter(product => product.id !== productId);
         cart = cart.filter(item => item.id !== productId);
-        saveInventoryToStorage(); // تحديث قاعدة البيانات بعد الحذف
+        saveInventoryToStorage(); 
         displayMenu();
         updateCartUI();
     }
@@ -314,11 +312,16 @@ function closeInvoice() {
     document.getElementById("invoiceModal").style.display = "none";
     
     if (currentOrderTotalTemp > 0) {
-        totalEarnings += currentOrderTotalTemp;
+        // حاسبة صافي الأرباح: (سعر البيع - التكلفة) * الكمية لكل عنصر بالسلة
+        const netProfit = cart.reduce((sum, item) => {
+            const cost = item.cost !== undefined ? item.cost : 0; // حماية في حال وجود منتجات قديمة في المتصفح بدون حقل تكلفة
+            return sum + ((item.price - cost) * item.quantity);
+        }, 0);
+
+        totalEarnings += netProfit; // إضافة صافي الأرباح فقط للخزينة بدلاً من السعر الكلي
         completedOrdersCount += 1;
         
-        saveStatsToStorage(); // حفظ الأرباح والإحصائيات في القاعدة بعد إنهاء المعاملة
-        
+        saveStatsToStorage(); 
         updateDashboardUI();
         currentOrderTotalTemp = 0;
     }
